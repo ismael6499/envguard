@@ -1,0 +1,25 @@
+{
+  "name": "envguard",
+  "version": "1.0.0",
+  "description": "Cross-platform encrypted secret & .env vault with native consent/PIN popups, AI Turbo mode, AWS/Git integrations, and Web UI.",
+  "main": "src/crypto-vault.js",
+  "bin": {
+    "vlt": "./bin/vlt.js",
+    "envguard": "./bin/vlt.js"
+  },
+  "scripts": {
+    "start": "node ./bin/vlt.js ui",
+    "test": "node ./tests/test-suite.js",
+    "audit-ui": "node ./tests/test-ui-audit.js"
+  },
+  "keywords": [
+    "env",
+    "secrets",
+    "vault",
+    "aws",
+    "git",
+    "cli",
+    "security"
+  ],
+  "license": "MIT"
+}

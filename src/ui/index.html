@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="appTitle">EnvGuard — Encrypted Secret &amp; Environment Vault</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">🛡️</span>
+      <span class="brand-text" data-i18n="brandName">EnvGuard</span>
+      <span id="statusBadge" class="status-badge locked" data-i18n="statusLocked">Locked</span>
+      <span id="sessionTimerBadge" class="session-badge hidden"></span>
+    </div>
+
+    <div class="topbar-controls">
+      <div id="unlockedControls" class="unlocked-controls hidden">
+        <label class="inline-label" for="sessionTtlSelect" data-i18n="sessionTtlLabel">Session TTL</label>
+        <select id="sessionTtlSelect" class="compact-select">
+          <option value="0" data-i18n="ttlOnce">Just once (0m)</option>
+          <option value="15" data-i18n="ttl15m">15 minutes</option>
+          <option value="30" data-i18n="ttl30m">30 minutes</option>
+          <option value="60" data-i18n="ttl1h">1 hour</option>
+          <option value="120" data-i18n="ttl2h">2 hours</option>
+          <option value="240" data-i18n="ttl4h" selected>4 hours</option>
+          <option value="480" data-i18n="ttl8h">8 hours (Workday)</option>
+          <option value="-1" data-i18n="ttlForever">Until locked</option>
+        </select>
+
+        <div class="turbo-dropdown">
+          <button type="button" id="turboToggleBtn" class="btn btn-turbo off" data-i18n="turboBtnOff">⚡ AI Turbo: OFF</button>
+          <div id="turboMenu" class="dropdown-menu hidden">
+            <div class="dropdown-header" data-i18n="turboMenuTitle">Timed AI Agent Turbo Mode</div>
+            <button type="button" class="dropdown-item" data-turbo-min="15" data-i18n="turbo15m">Enable 15 min</button>
+            <button type="button" class="dropdown-item" data-turbo-min="30" data-i18n="turbo30m">Enable 30 min</button>
+            <button type="button" class="dropdown-item" data-turbo-min="60" data-i18n="turbo1h">Enable 1 hour</button>
+            <button type="button" class="dropdown-item" data-turbo-min="120" data-i18n="turbo2h">Enable 2 hours</button>
+            <button type="button" class="dropdown-item" data-turbo-min="240" data-i18n="turbo4h">Enable 4 hours</button>
+            <button type="button" class="dropdown-item danger" data-turbo-min="0" data-i18n="turboDisable">Disable AI Turbo</button>
+          </div>
+        </div>
+
+        <button type="button" id="topChangePinBtn" class="btn btn-secondary" data-i18n="btnTopChangePin">🔑 Change PIN</button>
+        <button type="button" id="lockBtn" class="btn btn-secondary" data-i18n="btnLock">Lock Now</button>
+      </div>
+
+      <div class="lang-switch">
+        <button type="button" id="langEnBtn" class="btn-lang active" data-i18n="labelEn">EN</button>
+        <button type="button" id="langEsBtn" class="btn-lang" data-i18n="labelEs">ES</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Auth / Init / Recover Gate -->
+    <section id="authGate" class="auth-gate hidden">
+      <div class="card auth-card" id="initCard">
+        <h1 data-i18n="initBannerTitle">Welcome to EnvGuard</h1>
+        <p class="muted" data-i18n="initBannerDesc">Create an encrypted local vault protected by a Master PIN. An Emergency Recovery Key will also be generated.</p>
+        <form id="initForm" class="stack">
+          <div class="field">
+            <label for="initPinInput" data-i18n="pinLabel">Master PIN / Password (min 4 chars)</label>
+            <input type="password" id="initPinInput" data-i18n-placeholder="pinPlaceholder" required minlength="4" />
+          </div>
+          <div class="field">
+            <label for="initPinConfirmInput" data-i18n="pinConfirmLabel">Confirm Master PIN / Password</label>
+            <input type="password" id="initPinConfirmInput" data-i18n-placeholder="pinPlaceholder" required minlength="4" />
+          </div>
+          <div class="field">
+            <label for="initTtlSelect" data-i18n="sessionTtlLabel">Session TTL</label>
+            <select id="initTtlSelect">
+              <option value="15" data-i18n="ttl15m">15 minutes</option>
+              <option value="30" data-i18n="ttl30m">30 minutes</option>
+              <option value="60" data-i18n="ttl1h">1 hour</option>
+              <option value="120" data-i18n="ttl2h">2 hours</option>
+              <option value="240" data-i18n="ttl4h" selected>4 hours</option>
+              <option value="480" data-i18n="ttl8h">8 hours (Workday)</option>
+              <option value="-1" data-i18n="ttlForever">Until locked</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="initRevealTtlSelect" data-i18n="revealPinTtlLabel">Require PIN on 'Show' / Copy</label>
+            <select id="initRevealTtlSelect">
+              <option value="0" data-i18n="revealAlways">Always ask PIN (every click)</option>
+              <option value="1" data-i18n="reveal1m">Every 1 minute</option>
+              <option value="5" data-i18n="reveal5m" selected>Every 5 minutes (Default)</option>
+              <option value="15" data-i18n="reveal15m">Every 15 minutes</option>
+              <option value="30" data-i18n="reveal30m">Every 30 minutes</option>
+              <option value="60" data-i18n="reveal1h">Every 1 hour</option>
+              <option value="-1" data-i18n="revealSession">Never while session is unlocked</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="initPopupTimeoutSelect" data-i18n="popupTimeoutLabel">Confirmation Popup Timeout</label>
+            <select id="initPopupTimeoutSelect">
+              <option value="15" data-i18n="popupTimeout15s">15 seconds</option>
+              <option value="30" data-i18n="popupTimeout30s" selected>30 seconds (Default)</option>
+              <option value="60" data-i18n="popupTimeout1m">1 minute</option>
+              <option value="120" data-i18n="popupTimeout2m">2 minutes</option>
+              <option value="600" data-i18n="popupTimeout10m">10 minutes</option>
+              <option value="0" data-i18n="popupTimeoutInfinite">No limit (wait forever)</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" data-i18n="btnInitVault">Create Vault</button>
+        </form>
+      </div>
+
+      <div class="card auth-card hidden" id="unlockCard">
+        <h1 data-i18n="lockedBannerTitle">Vault is locked</h1>
+        <p class="muted" data-i18n="lockedBannerDesc">Enter your Master PIN to decrypt projects, AWS profiles, Git tokens, and environment tools.</p>
+        <form id="unlockForm" class="stack">
+          <div class="field">
+            <label for="unlockPinInput" data-i18n="pinLabel">Master PIN / Password (min 4 chars)</label>
+            <input type="password" id="unlockPinInput" data-i18n-placeholder="pinPlaceholder" required />
+          </div>
+          <div class="field">
+            <label for="unlockTtlSelect" data-i18n="sessionTtlLabel">Session TTL</label>
+            <select id="unlockTtlSelect">
+              <option value="0" data-i18n="ttlOnce">Just once (0m)</option>
+              <option value="15" data-i18n="ttl15m">15 minutes</option>
+              <option value="30" data-i18n="ttl30m">30 minutes</option>
+              <option value="60" data-i18n="ttl1h">1 hour</option>
+              <option value="120" data-i18n="ttl2h">2 hours</option>
+              <option value="240" data-i18n="ttl4h" selected>4 hours</option>
+              <option value="480" data-i18n="ttl8h">8 hours (Workday)</option>
+              <option value="-1" data-i18n="ttlForever">Until locked</option>
+            </select>
+          </div>
+          <div class="row-actions">
+            <button type="submit" class="btn btn-primary" data-i18n="btnUnlock">Unlock Vault</button>
+            <button type="button" id="showRecoverBtn" class="btn btn-secondary" data-i18n="btnRecoverVault">Recover with Key</button>
+          </div>
+        </form>
+
+        <form id="recoverForm" class="stack hidden">
+          <div class="field">
+            <label for="recoverKeyInput" data-i18n="recoveryKeyLabel">Emergency Recovery Key</label>
+            <input type="text" id="recoverKeyInput" data-i18n-placeholder="recoveryKeyPlaceholder" required />
+          </div>
+          <div class="field">
+            <label for="recoverNewPinInput" data-i18n="newPinLabel">New Master PIN</label>
+            <input type="password" id="recoverNewPinInput" data-i18n-placeholder="pinPlaceholder" required minlength="4" />
+          </div>
+          <div class="row-actions">
+            <button type="submit" class="btn btn-primary" data-i18n="btnRecoverVault">Recover with Key</button>
+            <button type="button" id="cancelRecoverBtn" class="btn btn-secondary" data-i18n="btnCancel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Main Dashboard -->
+    <section id="dashboard" class="dashboard hidden">
+      <nav class="tabs">
+        <button type="button" class="tab-btn active" data-tab="projects" data-i18n="tabProjects">Projects &amp; .env</button>
+        <button type="button" class="tab-btn" data-tab="aws" data-i18n="tabAws">AWS Profiles</button>
+        <button type="button" class="tab-btn" data-tab="git" data-i18n="tabGit">Git &amp; Tokens</button>
+        <button type="button" class="tab-btn" data-tab="osenv" data-i18n="tabOsEnv">OS Env Cleaner</button>
+        <button type="button" class="tab-btn" data-tab="audit" data-i18n="tabAudit">Audit &amp; Settings</button>
+      </nav>
+
+      <!-- Tab 1: Projects & .env -->
+      <div id="tab-projects" class="tab-pane active">
+        <div class="pane-header">
+          <h2 data-i18n="projectsTitle">Projects &amp; Environments</h2>
+          <div class="row-actions">
+            <button type="button" id="newProjectBtn" class="btn btn-primary" data-i18n="btnNewProject">+ New Project</button>
+            <button type="button" id="newEnvBtn" class="btn btn-secondary" data-i18n="btnNewEnv">+ New Env</button>
+            <button type="button" id="openImportBtn" class="btn btn-secondary" data-i18n="btnImport">Import (.env / .vltpack)</button>
+            <button type="button" id="openExportBtn" class="btn btn-secondary" data-i18n="btnExport">Share / Export</button>
+          </div>
+        </div>
+
+        <div class="card toolbar-card">
+          <div class="toolbar-grid">
+            <div class="field">
+              <label for="projectSelect" data-i18n="selectProject">Project</label>
+              <select id="projectSelect"></select>
+            </div>
+            <div class="field">
+              <label for="envSelect" data-i18n="selectEnv">Environment</label>
+              <select id="envSelect"></select>
+            </div>
+            <div class="field">
+              <label for="envPolicySelect" data-i18n="envPolicyLabel">Environment Policy</label>
+              <select id="envPolicySelect">
+                <option value="session" data-i18n="policySession">Session Pass-through</option>
+                <option value="confirm" data-i18n="policyConfirm">1-Click Confirm / Cancel</option>
+                <option value="pin_confirm" data-i18n="policyPinConfirm">PIN + Confirm Always</option>
+                <option value="blocked" data-i18n="policyBlocked">Blocked (Deny All)</option>
+              </select>
+            </div>
+            <div class="field checkbox-field">
+              <label class="checkbox-label">
+                <input type="checkbox" id="envCriticalChk" />
+                <span data-i18n="envCriticalLabel">Critical Environment</span>
+              </label>
+              <button type="button" id="saveEnvPolicyBtn" class="btn btn-secondary compact-btn" data-i18n="btnSavePolicy">Save Policy</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header-row">
+            <h3 id="activeEnvHeader"></h3>
+            <button type="button" id="addVarBtn" class="btn btn-primary" data-i18n="btnAddVar">+ Add Variable</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="colKey">Variable Name</th>
+                  <th data-i18n="colValue">Secret Value</th>
+                  <th data-i18n="colPolicy">Access Policy</th>
+                  <th data-i18n="colCritical">Critical</th>
+                  <th data-i18n="colHistory">History</th>
+                  <th data-i18n="colActions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="varsTableBody"></tbody>
+            </table>
+          </div>
+          <div id="varsEmptyMsg" class="empty-msg hidden" data-i18n="noVarsYet">No variables in this environment yet.</div>
+        </div>
+
+        <div class="card">
+          <h3 data-i18n="linkedDirsTitle">Linked Directories (vlt link)</h3>
+          <div class="row-actions mb-12">
+            <input type="text" id="linkDirInput" class="flex-1" data-i18n-placeholder="linkedDirPlaceholder" />
+            <button type="button" id="linkDirBtn" class="btn btn-secondary" data-i18n="btnLinkDir">Link Folder</button>
+          </div>
+          <div id="linkedDirsList" class="stack-sm"></div>
+          <hr class="divider" />
+          <h3 data-i18n="integrationsDirectTitle">Zero-CLI Integrations (Java / Spring Boot / Node / Python)</h3>
+          <div class="stack-sm">
+            <div class="item-row">
+              <div>
+                <div class="muted" data-i18n="springUrlLabel">Spring Boot (application.properties)</div>
+                <code id="springUrlCode"></code>
+              </div>
+              <button type="button" id="copySpringUrlBtn" class="btn btn-secondary compact-btn" data-i18n="btnCopy">Copy</button>
+            </div>
+            <div class="item-row">
+              <div>
+                <div class="muted" data-i18n="directJsonUrlLabel">HTTP JSON / .env Endpoint</div>
+                <code id="directJsonUrlCode"></code>
+              </div>
+              <button type="button" id="copyDirectUrlBtn" class="btn btn-secondary compact-btn" data-i18n="btnCopy">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: AWS Profiles -->
+      <div id="tab-aws" class="tab-pane hidden">
+        <div class="pane-header">
+          <div>
+            <h2 data-i18n="awsTitle">AWS Profiles &amp; Native Credential Provider</h2>
+            <p class="muted" data-i18n="awsDesc">Scan existing ~/.aws/credentials profiles, import them encrypted, and activate native credential_process so AWS CLI/SDKs prompt you automatically.</p>
+          </div>
+          <div class="row-actions">
+            <button type="button" id="scanAwsBtn" class="btn btn-secondary" data-i18n="btnScanAws">Scan ~/.aws Files</button>
+            <button type="button" id="addAwsBtn" class="btn btn-primary" data-i18n="btnAddAws">+ Add AWS Profile</button>
+          </div>
+        </div>
+
+        <div id="awsDiskCard" class="card hidden">
+          <div class="card-header-row">
+            <h3 data-i18n="awsDiskScanTitle">Detected in ~/.aws on Disk</h3>
+            <button type="button" id="importSelectedAwsBtn" class="btn btn-primary" data-i18n="btnImportSelectedAws">Import Selected to Vault</button>
+          </div>
+          <div id="awsDiskList" class="stack-sm"></div>
+        </div>
+
+        <div class="card">
+          <h3 data-i18n="awsVaultProfilesTitle">AWS Profiles in Vault</h3>
+          <div id="awsVaultList" class="stack-sm"></div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Git & Tokens -->
+      <div id="tab-git" class="tab-pane hidden">
+        <div class="pane-header">
+          <div>
+            <h2 data-i18n="gitTitle">Git Credentials &amp; Tokens</h2>
+            <p class="muted" data-i18n="gitDesc">Store GitHub/GitLab/Bitbucket tokens securely and enable EnvGuard as your global Git credential.helper.</p>
+          </div>
+          <div class="row-actions">
+            <button type="button" id="toggleGitHelperBtn" class="btn btn-secondary" data-i18n="btnEnableGitHelper">Activate Git credential.helper</button>
+            <button type="button" id="addGitBtn" class="btn btn-primary" data-i18n="btnAddGit">+ Add Git Credential</button>
+          </div>
+        </div>
+        <div class="card">
+          <div id="gitHelperBanner" class="banner-info mb-12"></div>
+          <div id="gitVaultList" class="stack-sm"></div>
+        </div>
+      </div>
+
+      <!-- Tab 4: OS Env Cleaner -->
+      <div id="tab-osenv" class="tab-pane hidden">
+        <div class="pane-header">
+          <div>
+            <h2 data-i18n="osEnvTitle">OS Environment Cleaner (Windows / Linux)</h2>
+            <p class="muted" data-i18n="osEnvDesc">Inspect persistent User environment variables on your OS, migrate sensitive ones into your Vault, and optionally remove them from OS properties (a backup is always kept).</p>
+          </div>
+          <button type="button" id="scanOsBtn" class="btn btn-primary" data-i18n="btnScanOsEnv">Scan OS Env Variables</button>
+        </div>
+
+        <div class="card">
+          <div class="toolbar-grid mb-12">
+            <div class="field">
+              <label for="osTargetProject" data-i18n="osTargetProject">Target Project</label>
+              <input type="text" id="osTargetProject" value="os-globals" />
+            </div>
+            <div class="field">
+              <label for="osTargetEnv" data-i18n="osTargetEnv">Target Environment</label>
+              <input type="text" id="osTargetEnv" value="shared" />
+            </div>
+            <div class="field checkbox-field">
+              <label class="checkbox-label">
+                <input type="checkbox" id="osRemoveChk" />
+                <span data-i18n="osRemoveAfterMigrate">Remove from Windows/OS User Env after backup &amp; migration</span>
+              </label>
+            </div>
+            <div class="field align-end">
+              <button type="button" id="migrateOsBtn" class="btn btn-primary" data-i18n="btnMigrateSelectedOs">Migrate Selected to Vault</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th data-i18n="colOsVar">Variable</th>
+                  <th data-i18n="colOsPreview">Masked Preview</th>
+                  <th data-i18n="colOsSource">Source</th>
+                  <th data-i18n="colOsRisk">Detection</th>
+                </tr>
+              </thead>
+              <tbody id="osScanBody"></tbody>
+            </table>
+          </div>
+          <div id="osScanEmpty" class="empty-msg" data-i18n="noOsVarsFound">Click 'Scan OS Env Variables' to inspect your user environment variables.</div>
+        </div>
+
+        <div class="card">
+          <h3 data-i18n="osBackupsTitle">OS Env Migration Backups</h3>
+          <div id="osBackupsList" class="stack-sm"></div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Audit & Settings -->
+      <div id="tab-audit" class="tab-pane hidden">
+        <div class="card">
+          <h2 data-i18n="settingsTitle">Vault Location, Backups &amp; Security Settings</h2>
+          <div class="settings-grid">
+            <div class="field">
+              <label for="vaultPathInput" data-i18n="vaultPathLabel">Vault File Path (customizable for Drive / Dropbox / WSL sync)</label>
+              <div class="row-actions">
+                <input type="text" id="vaultPathInput" class="flex-1" />
+                <button type="button" id="saveVaultPathBtn" class="btn btn-secondary" data-i18n="btnUpdateVaultPath">Update Vault Path</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="popupTimeoutSelect" data-i18n="popupTimeoutLabel">Confirmation Popup Timeout</label>
+              <div class="row-actions">
+                <select id="popupTimeoutSelect" class="flex-1">
+                  <option value="15" data-i18n="popupTimeout15s">15 seconds</option>
+                  <option value="30" data-i18n="popupTimeout30s" selected>30 seconds (Default)</option>
+                  <option value="60" data-i18n="popupTimeout1m">1 minute</option>
+                  <option value="120" data-i18n="popupTimeout2m">2 minutes</option>
+                  <option value="600" data-i18n="popupTimeout10m">10 minutes</option>
+                  <option value="0" data-i18n="popupTimeoutInfinite">No limit (wait forever)</option>
+                </select>
+                <button type="button" id="savePopupTimeoutBtn" class="btn btn-secondary" data-i18n="btnSavePopupTimeout">Save Timeout</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="revealPinTtlSelect" data-i18n="revealPinTtlLabel">Require PIN on 'Show' / Copy</label>
+              <div class="row-actions">
+                <select id="revealPinTtlSelect" class="flex-1">
+                  <option value="0" data-i18n="revealAlways">Always ask PIN (every click)</option>
+                  <option value="1" data-i18n="reveal1m">Every 1 minute</option>
+                  <option value="5" data-i18n="reveal5m" selected>Every 5 minutes (Default)</option>
+                  <option value="15" data-i18n="reveal15m">Every 15 minutes</option>
+                  <option value="30" data-i18n="reveal30m">Every 30 minutes</option>
+                  <option value="60" data-i18n="reveal1h">Every 1 hour</option>
+                  <option value="-1" data-i18n="revealSession">Never while session is unlocked</option>
+                </select>
+                <button type="button" id="saveRevealTtlBtn" class="btn btn-secondary" data-i18n="btnSaveRevealTtl">Save Show Policy</button>
+              </div>
+            </div>
+            <div class="field">
+              <label class="checkbox-label">
+                <input type="checkbox" id="autoStartChk" />
+                <span data-i18n="autoStartLabel">Auto-start background daemon on OS login</span>
+              </label>
+              <button type="button" id="saveAutoStartBtn" class="btn btn-secondary mt-8" data-i18n="btnToggleAutoStart">Save Startup Setting</button>
+            </div>
+            <div class="field">
+              <label class="checkbox-label">
+                <input type="checkbox" id="shellHookChk" />
+                <span data-i18n="shellHookLabel">Auto-inject secrets in linked folders for mvn, java, gradle, npm, python &amp; dotnet (PowerShell / Bash)</span>
+              </label>
+              <button type="button" id="saveShellHookBtn" class="btn btn-secondary mt-8" data-i18n="btnSaveShellHook">Save Shell Hook</button>
+            </div>
+          </div>
+
+          <hr class="divider" />
+          <div class="card-header-row">
+            <h3 data-i18n="changePinTitle">Change Master PIN</h3>
+            <button type="button" id="resetVaultBtn" class="btn btn-danger" data-i18n="btnResetVault">Reset Vault (Return to First-Run Setup)</button>
+          </div>
+          <form id="changePinForm" class="toolbar-grid">
+            <div class="field">
+              <label for="curPinInput" data-i18n="currentPinLabel">Current Master PIN</label>
+              <input type="password" id="curPinInput" required />
+            </div>
+            <div class="field">
+              <label for="newPinInput" data-i18n="newPinLabel">New Master PIN</label>
+              <input type="password" id="newPinInput" required minlength="4" />
+            </div>
+            <div class="field align-end">
+              <button type="submit" class="btn btn-secondary" data-i18n="btnChangePin">Change PIN</button>
+            </div>
+          </form>
+
+          <hr class="divider" />
+          <div class="card-header-row">
+            <h3 data-i18n="backupsTitle">Automatic Rolling Backups</h3>
+            <button type="button" id="downloadVaultBtn" class="btn btn-secondary" data-i18n="btnExportFullVault">Download Full Encrypted Vault Backup (.vlt)</button>
+          </div>
+          <div id="backupsList" class="stack-sm"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header-row">
+            <h2 data-i18n="auditTitle">Security Audit Log</h2>
+            <button type="button" id="refreshAuditBtn" class="btn btn-secondary" data-i18n="btnRefreshAudit">Refresh Log</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="colTime">Time</th>
+                  <th data-i18n="colCaller">Caller / Process</th>
+                  <th data-i18n="colResource">Resource</th>
+                  <th data-i18n="colPolicyUsed">Policy</th>
+                  <th data-i18n="colDecision">Decision</th>
+                </tr>
+              </thead>
+              <tbody id="auditTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modals -->
+  <div id="modalBackdrop" class="modal-backdrop hidden">
+    <!-- Reveal PIN Verification Modal -->
+    <div id="revealPinModal" class="modal hidden">
+      <h2 data-i18n="revealModalTitle">Enter PIN to View Secret</h2>
+      <p class="muted" data-i18n="revealModalDesc">Confirm your Master PIN to reveal, edit, or copy this secret.</p>
+      <form id="revealPinForm" class="stack">
+        <div class="field">
+          <label for="revealPinInput" data-i18n="pinLabel">Master PIN / Password (min 4 chars)</label>
+          <input type="password" id="revealPinInput" data-i18n-placeholder="pinPlaceholder" required />
+        </div>
+        <div class="row-actions">
+          <button type="submit" class="btn btn-primary" data-i18n="btnConfirmReveal">Verify &amp; Continue</button>
+          <button type="button" class="btn btn-secondary modal-close" data-i18n="btnCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Recovery Key One-Time Modal -->
+    <div id="recoveryNoticeModal" class="modal hidden">
+      <h2 data-i18n="recoveryNoticeTitle">Save your Emergency Recovery Key now!</h2>
+      <p class="muted" data-i18n="recoveryNoticeDesc">This key is shown only once. Keep it in a safe place to reset your PIN if you ever forget it.</p>
+      <div class="recovery-box">
+        <code id="recoveryKeyDisplay"></code>
+        <button type="button" id="copyRecoveryBtn" class="btn btn-secondary" data-i18n="btnCopy">Copy</button>
+      </div>
+      <button type="button" id="ackRecoveryBtn" class="btn btn-primary" data-i18n="btnAcknowledge">I saved my Recovery Key</button>
+    </div>
+
+    <!-- New Project / Env Modal -->
+    <div id="newProjectModal" class="modal hidden">
+      <h2 data-i18n="newProjectTitle">Create Project / Environment</h2>
+      <form id="newProjectForm" class="stack">
+        <div class="field">
+          <label for="npProjectInput" data-i18n="projectLabel">Project Name</label>
+          <input type="text" id="npProjectInput" required />
+        </div>
+        <div class="field">
+          <label for="npEnvInput" data-i18n="envLabel">Environment Name</label>
+          <input type="text" id="npEnvInput" value="dev" required />
+        </div>
+        <div class="row-actions">
+          <button type="submit" class="btn btn-primary" data-i18n="btnCreate">Create</button>
+          <button type="button" class="btn btn-secondary modal-close" data-i18n="btnCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Add/Edit Variable Modal -->
+    <div id="varModal" class="modal hidden">
+      <h2 data-i18n="varModalTitle">Add / Edit Variable</h2>
+      <form id="varForm" class="stack">
+        <div class="field">
+          <label for="varKeyInput" data-i18n="colKey">Variable Name</label>
+          <input type="text" id="varKeyInput" data-i18n-placeholder="varKeyPlaceholder" required />
+        </div>
+        <div class="field">
+          <label for="varValInput" data-i18n="colValue">Secret Value</label>
+          <textarea id="varValInput" rows="3" data-i18n-placeholder="varValPlaceholder"></textarea>
+        </div>
+        <div class="field">
+          <label for="varPolicySelect" data-i18n="colPolicy">Access Policy</label>
+          <select id="varPolicySelect">
+            <option value="inherit" data-i18n="policyInherit">Inherit Env Policy</option>
+            <option value="session" data-i18n="policySession">Session Pass-through</option>
+            <option value="confirm" data-i18n="policyConfirm">1-Click Confirm / Cancel</option>
+            <option value="pin_confirm" data-i18n="policyPinConfirm">PIN + Confirm Always</option>
+            <option value="blocked" data-i18n="policyBlocked">Blocked (Deny All)</option>
+          </select>
+        </div>
+        <label class="checkbox-label">
+          <input type="checkbox" id="varCriticalChk" />
+          <span data-i18n="colCritical">Critical</span>
+        </label>
+        <div class="field">
+          <label for="varDescInput" data-i18n="varDescLabel">Description (optional)</label>
+          <input type="text" id="varDescInput" data-i18n-placeholder="varDescPlaceholder" />
+        </div>
+        <div class="row-actions">
+          <button type="submit" class="btn btn-primary" data-i18n="btnSave">Save</button>
+          <button type="button" class="btn btn-secondary modal-close" data-i18n="btnCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- History / Rollback Modal -->
+    <div id="historyModal" class="modal hidden">
+      <h2 id="historyModalTitle"></h2>
+      <div id="historyList" class="stack-sm mb-12"></div>
+      <button type="button" class="btn btn-secondary modal-close" data-i18n="btnClose">Close</button>
+    </div>
+
+    <!-- Import Diff Modal -->
+    <div id="importModal" class="modal modal-lg hidden">
+      <h2 data-i18n="importModalTitle">Import Variables with Diff Preview</h2>
+      <div class="stack">
+        <div class="field">
+          <label for="importFileInput" data-i18n="importFileLabel">Upload .env or .vltpack file</label>
+          <input type="file" id="importFileInput" />
+        </div>
+        <div class="field">
+          <label for="importRawText" data-i18n="importPasteLabel">Or paste .env / .vltpack content</label>
+          <textarea id="importRawText" rows="5"></textarea>
+        </div>
+        <div class="toolbar-grid">
+          <div class="field">
+            <label for="importPassInput" data-i18n="importPassLabel">Transfer Password (required for .vltpack)</label>
+            <input type="password" id="importPassInput" />
+          </div>
+          <div class="field">
+            <label for="importModeSelect" data-i18n="importModeLabel">Import Mode</label>
+            <select id="importModeSelect">
+              <option value="merge" data-i18n="importModeMerge">Merge (keep other existing vars)</option>
+              <option value="overwrite" data-i18n="importModeOverwrite">Overwrite (replace environment vars)</option>
+            </select>
+          </div>
+        </div>
+        <div id="importDiffResult" class="diff-box hidden"></div>
+        <div class="row-actions">
+          <button type="button" id="previewDiffBtn" class="btn btn-secondary" data-i18n="btnPreviewDiff">Preview Diff</button>
+          <button type="button" id="applyImportBtn" class="btn btn-primary hidden" data-i18n="btnApplyImport">Apply Import</button>
+          <button type="button" class="btn btn-secondary modal-close" data-i18n="btnCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Share / Export Modal -->
+    <div id="exportModal" class="modal modal-lg hidden">
+      <h2 data-i18n="exportModalTitle">Share / Export Environment Secrets</h2>
+      <div class="stack">
+        <div class="field">
+          <label for="exportFormatSelect" data-i18n="exportFormatLabel">Export Format</label>
+          <select id="exportFormatSelect">
+            <option value="html" data-i18n="exportFmtHtml">Self-Decrypting .html Card (for coworkers without EnvGuard)</option>
+            <option value="vltpack" data-i18n="exportFmtPack">Encrypted .vltpack Bundle (app-to-app)</option>
+            <option value="tpl" data-i18n="exportFmtTpl">Safe .env.tpl (vlt:// references)</option>
+            <option value="example" data-i18n="exportFmtExample">.env.example (keys only, empty values)</option>
+            <option value="env" data-i18n="exportFmtEnv">Plain .env (raw values)</option>
+          </select>
+        </div>
+        <div class="field" id="exportPassField">
+          <label for="exportPassInput" data-i18n="exportPassLabel">Transfer Password (min 4 chars)</label>
+          <input type="password" id="exportPassInput" minlength="4" />
+        </div>
+        <div>
+          <div class="card-header-row">
+            <span data-i18n="exportSelectKeys">Select variables to include</span>
+            <div class="row-actions">
+              <button type="button" id="exportAllKeysBtn" class="btn btn-secondary compact-btn" data-i18n="btnSelectAll">Select All</button>
+              <button type="button" id="exportNoKeysBtn" class="btn btn-secondary compact-btn" data-i18n="btnSelectNone">Select None</button>
+            </div>
+          </div>
+          <div id="exportKeyCheckboxes" class="checkbox-grid"></div>
+        </div>
+        <div class="row-actions">
+          <button type="button" id="downloadExportBtn" class="btn btn-primary" data-i18n="btnDownloadExport">Download Export</button>
+          <button type="button" class="btn btn-secondary modal-close" data-i18n="btnCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit AWS Profile Modal -->
+    <div id="awsModal" class="modal hidden">
+      <h2 data-i18n="awsModalTitle">Add / Edit AWS Profile</h2>
+      <form id="awsForm" class="stack">
+        <div class="field">
+          <label for="awsNameInput" data-i18n="awsProfileName">Profile Name</label>
+          <input type="text" id="awsNameInput" required />
+        </div>
+        <div class="field">
+          <label for="awsKeyInput" data-i18n="awsAccessKey">Access Key ID</label>
+          <input type="text" id="awsKeyInput" required />
+        </div>
+        <div class="field">
+          <label for="awsSecretInput" data-i18n="awsSecretKey">Secret Access Key</label>
+          <input type="password" id="awsSecretInput" required />
+        </div>
+        <div class="field">
+          <label for="awsTokenInput" data-i18n="awsSessionToken">Session Token (Optional)</label>
+          <input type="password" id="awsTokenInput" />
+        </div>
+        <div class="toolbar-grid">
+          <div class="field">
+            <label for="awsRegionInput" data-i18n="awsRegion">Default Region</label>
+            <input type="text" id="awsRegionInput" value="us-east-1" />
+          </div>
+          <div class="field">
+            <label for="awsPolicySelect" data-i18n="colPolicy">Access Policy</label>
+            <select id="awsPolicySelect">
+              <option value="session" data-i18n="policySession">Session Pass-through</option>
+              <option value="confirm" data-i18n="policyConfirm" selected>1-Click Confirm / Cancel</option>
+              <option value="pin_confirm" data-i18n="policyPinConfirm">PIN + Confirm Always</option>
+              <option value="blocked" data-i18n="policyBlocked">Blocked (Deny All)</option>
+            </select>
+          </div>
+        </div>
+        <label class="checkbox-label">
+          <input type="checkbox" id="awsCriticalChk" />
+          <span data-i18n="colCritical">Critical</span>
+        </label>
+        <div class="row-actions">
+          <button type="submit" class="btn btn-primary" data-i18n="btnSave">Save</button>
+          <button type="button" class="btn btn-secondary modal-close" data-i18n="btnCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Add/Edit Git Credential Modal -->
+    <div id="gitModal" class="modal hidden">
+      <h2 data-i18n="gitModalTitle">Add / Edit Git Credential</h2>
+      <form id="gitForm" class="stack">
+        <div class="field">
+          <label for="gitHostInput" data-i18n="gitHost">Host (e.g. github.com)</label>
+          <input type="text" id="gitHostInput" value="github.com" required />
+        </div>
+        <div class="field">
+          <label for="gitUserInput" data-i18n="gitUser">Username</label>
+          <input type="text" id="gitUserInput" required />
+        </div>
+        <div class="field">
+          <label for="gitTokenInput" data-i18n="gitToken">Personal Access Token</label>
+          <input type="password" id="gitTokenInput" required />
+        </div>
+        <div class="toolbar-grid">
+          <div class="field">
+            <label for="gitProtoSelect" data-i18n="gitProtocol">Protocol</label>
+            <select id="gitProtoSelect">
+              <option value="https" data-i18n="gitAuthProtocolHttps">https</option>
+              <option value="http" data-i18n="gitAuthProtocolHttp">http</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gitPolicySelect" data-i18n="colPolicy">Access Policy</label>
+            <select id="gitPolicySelect">
+              <option value="session" data-i18n="policySession">Session Pass-through</option>
+              <option value="confirm" data-i18n="policyConfirm" selected>1-Click Confirm / Cancel</option>
+              <option value="pin_confirm" data-i18n="policyPinConfirm">PIN + Confirm Always</option>
+              <option value="blocked" data-i18n="policyBlocked">Blocked (Deny All)</option>
+            </select>
+          </div>
+        </div>
+        <label class="checkbox-label">
+          <input type="checkbox" id="gitCriticalChk" />
+          <span data-i18n="colCritical">Critical</span>
+        </label>
+        <div class="row-actions">
+          <button type="submit" class="btn btn-primary" data-i18n="btnSave">Save</button>
+          <button type="button" class="btn btn-secondary modal-close" data-i18n="btnCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
